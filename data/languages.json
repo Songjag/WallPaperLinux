@@ -1,6 +1,6 @@
 {
   "vi": {
-    "title": "DesktopLiveLinux — Hyprland Wallpaper",
+    "title": "HyprWall — Hyprland Wallpaper",
     "language": "Ngôn ngữ",
     "library": "Thư viện HyprlandWallpaper",
     "library_path": "Thư viện: {path}",
@@ -10,13 +10,13 @@
     "set": "Đặt wallpaper",
     "refresh": "Làm mới",
     "open_folder": "Mở thư mục",
-    "download": "Tải video từ link",
+    "download": "Tải wallpaper từ link",
     "download_button": "Tải vào thư viện",
     "install": "Tự cài dependency",
     "ready": "Sẵn sàng",
     "installing": "Đang cài dependency…",
     "setting": "Đang đổi wallpaper…",
-    "downloading": "Đang tải video…",
+    "downloading": "Đang tải…",
     "choose_dialog": "Chọn ảnh hoặc video",
     "media_files": "Ảnh và video",
     "all_files": "Tất cả file",
@@ -32,6 +32,8 @@
     "installing_python": "Đang cài Python dependency: {package}…",
     "python_install_failed": "Không thể cài {package}: {details}",
     "python_import_failed": "{package} đã được cài nhưng Python hiện tại không thấy nó.",
+    "ytdlp_missing": "Thiếu dependency yt-dlp. Hãy bấm 'Tự cài dependency' trước khi tải video.",
+    "ytdlp_ready": "Dependency yt-dlp đã sẵn sàng.",
     "file_missing": "File wallpaper không tồn tại.",
     "unsupported_media": "Định dạng không được hỗ trợ. Hãy chọn ảnh hoặc video phổ biến.",
     "hyprland_only": "App này chỉ chạy trong phiên Hyprland.",
@@ -44,7 +46,7 @@
     "downloaded": "Đã tải: {file}",
     "done": "Hoàn tất.",
     "error": "Lỗi: {error}",
-    "download_file_unknown": "Tải xong nhưng không xác định được file video.",
+    "download_file_unknown": "Tải xong nhưng không xác định được file wallpaper.",
     "workspace": "KHÔNG GIAN LÀM VIỆC",
     "hyprland_ready": "TỐI ƯU CHO HYPRLAND",
     "dashboard": "Wallpaper Studio",
@@ -57,12 +59,30 @@
     "library_empty": "Chưa có media nào. Hãy thêm ảnh hoặc video đầu tiên.",
     "image": "Ảnh",
     "video": "Video",
-    "download_help": "Dán link video công khai để tải thẳng vào thư viện.",
+    "gif": "GIF động",
+    "download_help": "Dán link wallpaper công khai để tải thẳng vào thư viện.",
+    "video_memory_warning": "Máy tính có từ 8 GB RAM trở xuống. Video có thể sử dụng nhiều RAM trong khi tải và phát. Bạn vẫn muốn tiếp tục tải không?",
     "activity": "HOẠT ĐỘNG HỆ THỐNG",
-    "note": "Chỉ dành cho Hyprland · mpvpaper · tự cài dependency khi cần"
+    "note": "Chỉ dành cho Hyprland · mpvpaper · tự cài dependency khi cần",
+    "rotation": "Đổi wallpaper tự động",
+    "rotation_help": "Tự động chọn file trong thư viện. Video/GIF động phát hết rồi mới đổi; ảnh tĩnh đổi theo số phút bên dưới.",
+    "rotation_enable": "Bật tự động đổi",
+    "minutes": "phút (cho ảnh tĩnh)",
+    "rotation_started": "Đã bật đổi wallpaper tự động — ảnh tĩnh đổi mỗi {minutes} phút.",
+    "rotation_stopped": "Đã tắt đổi wallpaper tự động."
+    ,"rename": "Đổi tên"
+    ,"delete": "Xóa"
+    ,"rename_prompt": "Nhập tên mới (giữ nguyên phần mở rộng):"
+    ,"invalid_name": "Tên file không hợp lệ."
+    ,"keep_extension": "Vui lòng giữ nguyên phần mở rộng của file."
+    ,"name_exists": "Tên file này đã tồn tại."
+    ,"delete_confirm": "Bạn có chắc muốn xóa '{file}' không?"
+    ,"file_action_error": "Không thể thao tác với file: {error}"
+    ,"deleted": "Đã xóa: {file}"
+    ,"renamed": "Đã đổi tên '{old}' thành '{new}'."
   },
   "en": {
-    "title": "DesktopLiveLinux — Hyprland Wallpaper",
+    "title": "HyprWall — Hyprland Wallpaper",
     "language": "Language",
     "library": "HyprlandWallpaper library",
     "library_path": "Library: {path}",
@@ -72,13 +92,13 @@
     "set": "Set wallpaper",
     "refresh": "Refresh",
     "open_folder": "Open folder",
-    "download": "Download video from URL",
+    "download": "Download wallpaper from URL",
     "download_button": "Download to library",
     "install": "Auto-install dependencies",
     "ready": "Ready",
     "installing": "Installing dependencies…",
     "setting": "Changing wallpaper…",
-    "downloading": "Downloading video…",
+    "downloading": "Downloading…",
     "choose_dialog": "Choose an image or video",
     "media_files": "Images and videos",
     "all_files": "All files",
@@ -94,6 +114,8 @@
     "installing_python": "Installing Python dependency: {package}…",
     "python_install_failed": "Could not install {package}: {details}",
     "python_import_failed": "{package} was installed but is not visible to this Python interpreter.",
+    "ytdlp_missing": "The yt-dlp dependency is missing. Click 'Auto-install dependencies' before downloading videos.",
+    "ytdlp_ready": "The yt-dlp dependency is ready.",
     "file_missing": "The wallpaper file does not exist.",
     "unsupported_media": "Unsupported file format. Select a common image or video.",
     "hyprland_only": "This application only works inside a Hyprland session.",
@@ -106,7 +128,7 @@
     "downloaded": "Downloaded: {file}",
     "done": "Done.",
     "error": "Error: {error}",
-    "download_file_unknown": "The download finished but the video file could not be found.",
+    "download_file_unknown": "The download finished but the wallpaper file could not be found.",
     "workspace": "WORKSPACE",
     "hyprland_ready": "OPTIMIZED FOR HYPRLAND",
     "dashboard": "Wallpaper Studio",
@@ -119,8 +141,26 @@
     "library_empty": "No media yet. Add your first image or video.",
     "image": "Image",
     "video": "Video",
-    "download_help": "Paste a public video link to download it straight to your library.",
+    "gif": "Animated GIF",
+    "download_help": "Paste a public wallpaper link to download it straight to your library.",
+    "video_memory_warning": "This computer has 8 GB of RAM or less. Video may use significant memory while downloading and playing. Do you want to continue?",
     "activity": "SYSTEM ACTIVITY",
-    "note": "Hyprland only · mpvpaper · installs dependencies when needed"
+    "note": "Hyprland only · mpvpaper · installs dependencies when needed",
+    "rotation": "Auto wallpaper rotation",
+    "rotation_help": "Automatically picks files from the library. Videos and animated GIFs play to completion; static images switch after the interval below.",
+    "rotation_enable": "Enable auto-rotate",
+    "minutes": "minutes (for images)",
+    "rotation_started": "Automatic wallpaper rotation enabled — static images switch every {minutes} minutes.",
+    "rotation_stopped": "Automatic wallpaper rotation disabled."
+    ,"rename": "Rename"
+    ,"delete": "Delete"
+    ,"rename_prompt": "Enter a new name (keep the file extension):"
+    ,"invalid_name": "Invalid file name."
+    ,"keep_extension": "Please keep the file extension unchanged."
+    ,"name_exists": "A file with this name already exists."
+    ,"delete_confirm": "Are you sure you want to delete '{file}'?"
+    ,"file_action_error": "Could not operate on the file: {error}"
+    ,"deleted": "Deleted: {file}"
+    ,"renamed": "Renamed '{old}' to '{new}'."
   }
 }

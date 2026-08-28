@@ -72,53 +72,65 @@ class LinuxDependencies:
 
     def install_system_dependencies(self) -> None:
         missing = [item for item in ("mpvpaper", "mpv", "ffmpeg") if not self.command_exists(item)]
-        if not missing:
-            self.log(self.t("dependencies_ready"))
-            return
-        distro = self.detect()
-        self.log(self.t("installing_system", items=", ".join(missing), distro=distro.name))
-        packages = list(distro.packages)
-        if distro.package_manager == "apt":
-            self._run(self._privileged(["apt-get", "update"]))
-            command = ["apt-get", "install", "-y", *packages]
-        elif distro.package_manager == "dnf":
-            command = ["dnf", "install", "-y", *packages]
-        elif distro.package_manager == "pacman":
-            command = ["pacman", "-S", "--needed", "--noconfirm", *packages]
-        elif distro.package_manager == "zypper":
-            command = ["zypper", "--non-interactive", "install", *packages]
-        elif distro.package_manager == "apk":
-            command = ["apk", "add", *packages]
-        elif distro.package_manager == "xbps-install":
-            command = ["xbps-install", "-y", *packages]
-        elif distro.package_manager == "eopkg":
-            command = ["eopkg", "install", "-y", *packages]
-        else:
-            command = ["nix", "profile", "install", *[f"nixpkgs#{item}" for item in packages]]
-        if distro.requires_root:
-            command = self._privileged(command)
-        self._run(command)
-        still_missing = [item for item in missing if not self.command_exists(item)]
-        if still_missing:
-            raise DesktopLiveLinuxError(self.t("still_missing", items=", ".join(still_missing)))
-        self.log(self.t("dependencies_installed"))
+        if missing:
+            distro = self.detect()
+            self.log(self.t("installing_system", items=", ".join(missing), distro=distro.name))
+            packages = list(distro.packages)
+            if distro.package_manager == "apt":
+                self._run(self._privileged(["apt-get", "update"]))
+                command = ["apt-get", "install", "-y", *packages]
+            elif distro.package_manager == "dnf":
+                command = ["dnf", "install", "-y", *packages]
+            elif distro.package_manager == "pacman":
+                command = ["pacman", "-S", "--needed", "--noconfirm", *packages]
+            elif distro.package_manager == "zypper":
+                command = ["zypper", "--non-interactive", "install", *packages]
+            elif distro.package_manager == "apk":
+                command = ["apk", "add", *packages]
+            elif distro.package_manager == "xbps-install":
+                command = ["xbps-install", "-y", *packages]
+            elif distro.package_manager == "eopkg":
+                command = ["eopkg", "install", "-y", *packages]
+            else:
+                command = ["nix", "profile", "install", *[f"nixpkgs#{item}" for item in packages]]
+            if distro.requires_root:
+                command = self._privileged(command)
+            self._run(command)
+            still_missing = [item for item in missing if not self.command_exists(item)]
+            if still_missing:
+                raise DesktopLiveLinuxError(self.t("still_missing", items=", ".join(still_missing)))
+            self.log(self.t("dependencies_installed"))
+        self.log(self.t("dependencies_ready"))
 
-    def ensure_ytdlp(self) -> object:
+    def install_all_dependencies(self) -> None:
+        self.install_system_dependencies()
+        self.install_ytdlp()
+
+    def install_ytdlp(self) -> None:
+        try:
+            importlib.import_module("yt_dlp")
+            self.log(self.t("ytdlp_ready"))
+            return
+        except ImportError:
+            pass
+        self.log(self.t("installing_python", package="yt-dlp"))
+        python = shutil.which("python3") or shutil.which("python") or sys.executable
+        result = subprocess.run(
+            [python, "-m", "pip", "install", "--user", "--upgrade", "yt-dlp"],
+            text=True, capture_output=True, check=False,
+        )
+        if result.returncode != 0:
+            details = result.stderr.strip() or result.stdout.strip() or "unknown error"
+            raise DesktopLiveLinuxError(self.t("python_install_failed", package="yt-dlp", details=details))
+        importlib.invalidate_caches()
+        try:
+            importlib.import_module("yt_dlp")
+        except ImportError as error:
+            raise DesktopLiveLinuxError(self.t("python_import_failed", package="yt-dlp")) from error
+        self.log(self.t("ytdlp_ready"))
+
+    def get_ytdlp(self) -> object:
         try:
             return importlib.import_module("yt_dlp")
         except ImportError:
-            self.log(self.t("installing_python", package="yt-dlp"))
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--user", "--upgrade", "yt-dlp"],
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            if result.returncode != 0:
-                details = result.stderr.strip() or result.stdout.strip() or "unknown error"
-                raise DesktopLiveLinuxError(self.t("python_install_failed", package="yt-dlp", details=details))
-            importlib.invalidate_caches()
-            try:
-                return importlib.import_module("yt_dlp")
-            except ImportError as error:
-                raise DesktopLiveLinuxError(self.t("python_import_failed", package="yt-dlp")) from error
+            raise DesktopLiveLinuxError(self.t("ytdlp_missing"))

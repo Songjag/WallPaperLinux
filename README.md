@@ -1,4 +1,4 @@
-# DesktopLiveLinux
+# HyprWall
 
 Ứng dụng Python dành riêng cho **Hyprland** để quản lý wallpaper qua `mpvpaper`,
  với giao diện **CustomTkinter** có thể đổi giữa Tiếng Việt và English.
@@ -46,7 +46,7 @@ python3 -m pip install --user -r requirements.txt
 ./build.sh
 ```
 
-Lệnh build tạo executable tại `dist/DesktopLiveLinux` và nhúng thư mục `data`
+Lệnh build tạo executable tại `dist/HyprWall` và nhúng thư mục `data`
 (bao gồm `icon.ico` và `languages.json`) vào bundle.
 
 Nhấn **Tự cài dependency** ở lần chạy đầu, hoặc chọn/tải một wallpaper: app sẽ
