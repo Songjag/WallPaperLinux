@@ -24,7 +24,16 @@ class HyprlandWallpaper:
 
     @staticmethod
     def in_hyprland() -> bool:
-        return bool(os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"))
+        desktop = (
+            os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
+            or os.environ.get("XDG_CURRENT_DESKTOP")
+            or os.environ.get("XDG_SESSION_DESKTOP")
+            or os.environ.get("DESKTOP_SESSION")
+            or ""
+        )
+        if "hyprland" in desktop.lower():
+            return True
+        return bool(os.environ.get("WAYLAND_DISPLAY")) and shutil.which("hyprctl") is not None
 
     @staticmethod
     def _command(path: Path) -> list[str]:
@@ -52,20 +61,25 @@ class HyprlandWallpaper:
     def _write_hyprland_config(self, path: Path) -> None:
         HYPRLAND_CONFIG.parent.mkdir(parents=True, exist_ok=True)
         original = HYPRLAND_CONFIG.read_text(encoding="utf-8") if HYPRLAND_CONFIG.exists() else ""
+
+        # Always replace all prior DesktopLiveLinux blocks. If we append forever,
+        # Hyprland will launch a fresh mpvpaper instance on every boot and grow RAM.
         if MARKER_START in original and MARKER_END in original:
             original = re.sub(
-                rf"{re.escape(MARKER_START)}.*?{re.escape(MARKER_END)}\\n?",
+                rf"{re.escape(MARKER_START)}.*?{re.escape(MARKER_END)}\s*",
                 "",
                 original,
                 flags=re.DOTALL,
-            ).rstrip() + "\n"
+            )
+
+        cleaned = original.rstrip() + "\n"
         if HYPRLAND_CONFIG.exists():
             backup = HYPRLAND_CONFIG.with_suffix(HYPRLAND_CONFIG.suffix + ".desktop-live-linux.bak")
             backup.write_text(HYPRLAND_CONFIG.read_text(encoding="utf-8"), encoding="utf-8")
             self.log(self.t("backup", file=backup.name))
         command = " ".join(shlex.quote(part) for part in self._command(path))
         block = f"\n{MARKER_START}\nexec-once = {command}\n{MARKER_END}\n"
-        HYPRLAND_CONFIG.write_text(original.rstrip() + block, encoding="utf-8")
+        HYPRLAND_CONFIG.write_text(cleaned + block, encoding="utf-8")
 
     def set_wallpaper(self, path: Path) -> None:
         path = path.expanduser().resolve()
