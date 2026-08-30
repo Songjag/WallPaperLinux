@@ -410,8 +410,14 @@ class WallpaperApp:
         except OSError as error:
             messagebox.showerror(APP_NAME, self.t("file_action_error", error=error), parent=self.window)
             return
-        if Path(self.selected_path.get()).resolve() == path.resolve():
+
+        was_current = Path(self.selected_path.get()).resolve() == path.resolve()
+        if was_current:
             self.selected_path.set(str(destination))
+            try:
+                self.wallpaper.set_wallpaper(destination)
+            except Exception as error:
+                messagebox.showwarning(APP_NAME, str(error), parent=self.window)
         self.refresh_library()
         self._append_log(self.t("renamed", old=path.name, new=destination.name))
 
@@ -430,14 +436,20 @@ class WallpaperApp:
         self._run_background(self.t("installing"), self.dependencies.install_all_dependencies)
 
     def toggle_rotation(self) -> None:
+        enabled = self.rotation_enabled.get()
         minutes = self._rotation_minutes()
-        write_rotation_config(enabled=self.rotation_enabled.get(), fallback_minutes=minutes)
-        if self.rotation_enabled.get():
-            install_and_enable(self.log)
-            self._append_log(self.t("rotation_started", minutes=minutes))
+        write_rotation_config(enabled=enabled, fallback_minutes=minutes)
+
+        if enabled:
+            self._run_background(
+                self.t("rotation_started", minutes=minutes),
+                lambda: (install_and_enable(self.log), self.log(self.t("rotation_started", minutes=minutes))),
+            )
         else:
-            disable(self.log)
-            self._append_log(self.t("rotation_stopped"))
+            self._run_background(
+                self.t("rotation_stopped"),
+                lambda: (disable(self.log), self.log(self.t("rotation_stopped"))),
+            )
 
     def _rotation_minutes(self) -> int:
         try:
@@ -455,7 +467,6 @@ class WallpaperApp:
             return
 
         def job() -> Path:
-            self.dependencies.install_system_dependencies()
             self.wallpaper.set_wallpaper(path)
             return path
 

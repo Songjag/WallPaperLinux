@@ -27,14 +27,14 @@ class LinuxDependencies:
     """Detect a package manager and install mpvpaper prerequisites."""
 
     DISTRIBUTIONS = {
-        "apt": Distribution("Debian/Ubuntu", "apt", ("mpvpaper", "mpv", "ffmpeg", "python3-pip")),
-        "dnf": Distribution("Fedora", "dnf", ("mpvpaper", "mpv", "ffmpeg", "python3-pip")),
-        "pacman": Distribution("Arch Linux", "pacman", ("mpvpaper", "mpv", "ffmpeg", "python-pip")),
-        "zypper": Distribution("openSUSE", "zypper", ("mpvpaper", "mpv", "ffmpeg", "python3-pip")),
-        "apk": Distribution("Alpine", "apk", ("mpvpaper", "mpv", "ffmpeg", "py3-pip")),
-        "xbps-install": Distribution("Void Linux", "xbps-install", ("mpvpaper", "mpv", "ffmpeg", "python3-pip")),
-        "eopkg": Distribution("Solus", "eopkg", ("mpvpaper", "mpv", "ffmpeg", "python3-pip")),
-        "nix": Distribution("NixOS", "nix", ("mpvpaper", "mpv", "ffmpeg"), requires_root=False),
+        "apt": Distribution("Debian/Ubuntu", "apt", ("mpvpaper", "mpv", "ffmpeg", "swww", "python3-pip")),
+        "dnf": Distribution("Fedora", "dnf", ("mpvpaper", "mpv", "ffmpeg", "swww", "python3-pip")),
+        "pacman": Distribution("Arch Linux", "pacman", ("mpvpaper", "mpv", "ffmpeg", "swww", "python-pip")),
+        "zypper": Distribution("openSUSE", "zypper", ("mpvpaper", "mpv", "ffmpeg", "swww", "python3-pip")),
+        "apk": Distribution("Alpine", "apk", ("mpvpaper", "mpv", "ffmpeg", "swww", "py3-pip")),
+        "xbps-install": Distribution("Void Linux", "xbps-install", ("mpvpaper", "mpv", "ffmpeg", "swww", "python3-pip")),
+        "eopkg": Distribution("Solus", "eopkg", ("mpvpaper", "mpv", "ffmpeg", "swww", "python3-pip")),
+        "nix": Distribution("NixOS", "nix", ("mpvpaper", "mpv", "ffmpeg", "swww"), requires_root=False),
     }
 
     def __init__(self, log: Callable[[str], None], t: Callable[..., str]) -> None:
@@ -51,32 +51,40 @@ class LinuxDependencies:
                 return distribution
         raise DesktopLiveLinuxError(self.t("no_package_manager"))
 
-    @staticmethod
-    def _run(command: list[str]) -> None:
+    def _run(self, command: list[str]) -> None:
+        self.log(f"[deps] executing install command: {' '.join(command)}")
         result = subprocess.run(command, text=True, capture_output=True, check=False)
         if result.returncode != 0:
-            raise DesktopLiveLinuxError(result.stderr.strip() or result.stdout.strip() or "unknown error")
+            details = result.stderr.strip() or result.stdout.strip() or "unknown error"
+            self.log(f"[deps] command failed: {' '.join(command)} | {details}")
+            raise DesktopLiveLinuxError(details)
 
     def _privileged(self, command: list[str]) -> list[str]:
         executable = shutil.which(command[0])
         if executable is None:
+            self.log(f"[deps] required command missing: {command[0]}")
             raise DesktopLiveLinuxError(self.t("command_missing", command=command[0]))
         command[0] = executable
         if os.geteuid() == 0:
             return command
         if self.command_exists("pkexec"):
+            self.log(f"[deps] using pkexec for: {' '.join(command)}")
             return ["pkexec", *command]
         if self.command_exists("sudo"):
+            self.log(f"[deps] using sudo for: {' '.join(command)}")
             return ["sudo", *command]
+        self.log("[deps] root privileges are required for system dependency installation")
         raise DesktopLiveLinuxError(self.t("needs_admin"))
 
     def install_system_dependencies(self) -> None:
-        missing = [item for item in ("mpvpaper", "mpv", "ffmpeg") if not self.command_exists(item)]
+        missing = [item for item in ("mpvpaper", "mpv", "ffmpeg", "swww") if not self.command_exists(item)]
         if missing:
             distro = self.detect()
             self.log(self.t("installing_system", items=", ".join(missing), distro=distro.name))
+            self.log(f"[deps] distro detected: {distro.name} ({distro.package_manager})")
             packages = list(distro.packages)
             if distro.package_manager == "apt":
+                self.log("[deps] running apt-get update")
                 self._run(self._privileged(["apt-get", "update"]))
                 command = ["apt-get", "install", "-y", *packages]
             elif distro.package_manager == "dnf":
@@ -95,9 +103,11 @@ class LinuxDependencies:
                 command = ["nix", "profile", "install", *[f"nixpkgs#{item}" for item in packages]]
             if distro.requires_root:
                 command = self._privileged(command)
+            self.log(f"[deps] final install command: {' '.join(command)}")
             self._run(command)
             still_missing = [item for item in missing if not self.command_exists(item)]
             if still_missing:
+                self.log(f"[deps] package install did not satisfy dependencies: {', '.join(still_missing)}")
                 raise DesktopLiveLinuxError(self.t("still_missing", items=", ".join(still_missing)))
             self.log(self.t("dependencies_installed"))
         self.log(self.t("dependencies_ready"))
@@ -115,17 +125,20 @@ class LinuxDependencies:
             pass
         self.log(self.t("installing_python", package="yt-dlp"))
         python = shutil.which("python3") or shutil.which("python") or sys.executable
+        self.log(f"[deps] installing yt-dlp via: {python} -m pip install --user --upgrade yt-dlp")
         result = subprocess.run(
             [python, "-m", "pip", "install", "--user", "--upgrade", "yt-dlp"],
             text=True, capture_output=True, check=False,
         )
         if result.returncode != 0:
             details = result.stderr.strip() or result.stdout.strip() or "unknown error"
+            self.log(f"[deps] yt-dlp install failed: {details}")
             raise DesktopLiveLinuxError(self.t("python_install_failed", package="yt-dlp", details=details))
         importlib.invalidate_caches()
         try:
             importlib.import_module("yt_dlp")
         except ImportError as error:
+            self.log("[deps] yt-dlp import validation failed after installation")
             raise DesktopLiveLinuxError(self.t("python_import_failed", package="yt-dlp")) from error
         self.log(self.t("ytdlp_ready"))
 

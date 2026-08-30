@@ -36,6 +36,19 @@ def _wait_for(seconds: float) -> None:
         remaining -= chunk
 
 
+def _current_candidates(current: Path | None) -> list[Path]:
+    library = _library()
+    if not library:
+        return []
+    if current is not None and not current.exists():
+        current = None
+    if current is not None:
+        remaining = [path for path in library if path != current]
+        if remaining:
+            return remaining
+    return library
+
+
 def run_rotator() -> None:
     wallpaper = HyprlandWallpaper(_log, _t)
     current: Path | None = None
@@ -44,7 +57,7 @@ def run_rotator() -> None:
         if not config["enabled"]:
             time.sleep(POLL_SECONDS)
             continue
-        candidates = [path for path in _library() if path != current] or _library()
+        candidates = _current_candidates(current)
         if not candidates:
             time.sleep(POLL_SECONDS)
             continue
