@@ -129,8 +129,14 @@ class HyprlandWallpaper:
     # Hyprland config writer
     # ------------------------------------------------------------------
 
-    def _write_hyprland_config(self, exec_lines: str) -> None:
+    def _write_hyprland_config(self, exec_lines: str | Path) -> None:
         """Overwrite the HyprWall exec-once block in hyprland.conf."""
+        if isinstance(exec_lines, Path):
+            path = exec_lines.expanduser().resolve()
+            exec_lines = (
+                'exec-once = mpvpaper -o "--no-audio --panscan=1.0 --loop-file=inf" \'*\' '
+                f"{shlex.quote(str(path))}"
+            )
         self.log(f"[wallpaper] updating Hyprland config: {exec_lines}")
         HYPRLAND_CONFIG.parent.mkdir(parents=True, exist_ok=True)
         original = HYPRLAND_CONFIG.read_text(encoding="utf-8") if HYPRLAND_CONFIG.exists() else ""

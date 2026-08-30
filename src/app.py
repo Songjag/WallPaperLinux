@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import queue
 import os
+import queue
 import shutil
 import subprocess
 import threading
@@ -14,17 +14,16 @@ from typing import Callable
 
 from PIL import Image
 
-from .autostart import cleanup_legacy_service, disable, install_and_enable
+from .autostart import cleanup_legacy_service, disable
 from .config import APP_ICON, APP_NAME, DEFAULT_ROTATION_MINUTES, MEDIA_EXTENSIONS, MIN_ROTATION_MINUTES, WALLPAPER_DIR
 from .dependencies import LinuxDependencies
 from .i18n import Translator
 from .media import MediaKind, classify_media
-from .rotation_config import read_config as read_rotation_config, write_config as write_rotation_config
 from .wallpaper import HyprlandWallpaper
 
 
 class WallpaperApp:
-    """Build and manage the desktop application window."""
+    """Wallpaper manager with rename/config editing but without system auto-start or rotation loop."""
 
     def __init__(self, ctk: object, translator: Translator) -> None:
         self.ctk = ctk
@@ -44,28 +43,19 @@ class WallpaperApp:
         self.busy = False
         self.log_history: list[str] = []
         self.library_paths: list[Path] = []
-        self.rotation_enabled = ctk.BooleanVar(value=False)
-        self.rotation_interval = ctk.StringVar(value=str(DEFAULT_ROTATION_MINUTES))
-        saved_rotation = read_rotation_config()
-        self.rotation_enabled.set(saved_rotation["enabled"])
-        self.rotation_interval.set(str(saved_rotation["fallback_minutes"]))
         WALLPAPER_DIR.mkdir(parents=True, exist_ok=True)
         cleanup_legacy_service(self.log)
-        if self.rotation_enabled.get():
-            install_and_enable(self.log)
+        disable(self.log)
         self._build_ui()
         self.refresh_library()
         self.window.after(100, self._process_events)
 
     def _set_window_icon(self) -> None:
-        """Use the bundled ICO file when the current Tk window manager supports it."""
         if not APP_ICON.is_file():
             return
         try:
             self.window.iconbitmap(str(APP_ICON))
         except TclError:
-            # Some Linux Tk/window-manager combinations cannot read ICO files.
-            # The application remains usable while Windows and supported WMs use it.
             pass
 
     def t(self, key: str, **values: object) -> str:
@@ -101,8 +91,8 @@ class WallpaperApp:
 
         support = ctk.CTkFrame(sidebar, corner_radius=16, fg_color="#15233b")
         support.pack(fill="x", padx=16, pady=(24, 0))
-        ctk.CTkLabel(support, text=self.t("hyprland_ready"), text_color="#87b9ff", font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w", padx=14, pady=(13, 4))
-        ctk.CTkLabel(support, text=self.t("note"), wraplength=180, justify="left", text_color="#b3c0d8", font=ctk.CTkFont(size=11)).pack(anchor="w", padx=14, pady=(0, 13))
+        ctk.CTkLabel(support, text="No auto-start", text_color="#87b9ff", font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w", padx=14, pady=(13, 4))
+        ctk.CTkLabel(support, text="Only wallpaper editing and config updates are enabled; startup loop is off.", wraplength=180, justify="left", text_color="#b3c0d8", font=ctk.CTkFont(size=11)).pack(anchor="w", padx=14, pady=(0, 13))
 
         language_panel = ctk.CTkFrame(sidebar, corner_radius=14, fg_color="#15233b")
         language_panel.pack(side="bottom", fill="x", padx=16, pady=20)
@@ -167,71 +157,16 @@ class WallpaperApp:
         self.library_list = ctk.CTkScrollableFrame(library, height=180, corner_radius=12, fg_color="#0d1728")
         self.library_list.pack(fill="both", expand=True, padx=16, pady=(0, 16))
 
-        rotation = ctk.CTkFrame(main, corner_radius=18, fg_color="#111d30")
-        rotation.pack(fill="x", pady=(16, 0))
-        rotation.columnconfigure(0, weight=1)
-        ctk.CTkLabel(rotation, text=self.t("rotation"), font=ctk.CTkFont(size=15, weight="bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=20, pady=(17, 2))
-        ctk.CTkLabel(rotation, text=self.t("rotation_help"), text_color="#8192ae", font=ctk.CTkFont(size=11), wraplength=560, justify="left").grid(row=1, column=0, columnspan=3, sticky="w", padx=20, pady=(0, 9))
-        ctk.CTkSwitch(rotation, text=self.t("rotation_enable"), variable=self.rotation_enabled, onvalue=True, offvalue=False, command=self.toggle_rotation, progress_color="#2563eb").grid(row=2, column=0, sticky="w", padx=20, pady=(0, 18))
-        rotation_entry = ctk.CTkEntry(rotation, textvariable=self.rotation_interval, width=70, height=36, border_color="#294464", fg_color="#0d1728")
-        self._bind_edit_shortcuts(rotation_entry)
-        rotation_entry.grid(row=2, column=1, padx=(0, 6), pady=(0, 18))
-        ctk.CTkLabel(rotation, text=self.t("minutes")).grid(row=2, column=2, sticky="w", padx=(0, 20), pady=(0, 18))
-
-        download = ctk.CTkFrame(main, corner_radius=18, fg_color="#111d30")
-        download.pack(fill="x", pady=(16, 0))
-        download.columnconfigure(0, weight=1)
-        ctk.CTkLabel(download, text=self.t("download"), font=ctk.CTkFont(size=15, weight="bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=20, pady=(17, 2))
-        ctk.CTkLabel(download, text=self.t("download_help"), text_color="#8192ae", font=ctk.CTkFont(size=11)).grid(row=1, column=0, columnspan=2, sticky="w", padx=20, pady=(0, 9))
-        self.url_entry = ctk.CTkEntry(download, textvariable=self.url, placeholder_text="https://...", height=39, border_color="#294464", fg_color="#0d1728")
-        self._bind_edit_shortcuts(self.url_entry)
-        self.url_entry.grid(row=2, column=0, sticky="ew", padx=(20, 8), pady=(0, 18))
-        ctk.CTkButton(download, text=self.t("download_button"), width=158, height=39, corner_radius=10, fg_color="#273b5c", hover_color="#365378", command=self.download_wallpaper).grid(row=2, column=1, padx=(0, 20), pady=(0, 18))
-
         footer = ctk.CTkFrame(main, fg_color="transparent")
         footer.pack(fill="x", pady=(15, 0))
         ctk.CTkLabel(footer, text=self.t("activity"), text_color="#9cadc7", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
         ctk.CTkButton(footer, text=self.t("install"), width=165, height=30, corner_radius=9, fg_color="transparent", border_width=1, border_color="#3b5579", text_color="#b7c7df", hover_color="#1c2d47", command=self.install_dependencies).pack(side="right")
+
         self.log_output = ctk.CTkTextbox(main, height=84, corner_radius=12, fg_color="#0d1728", border_width=1, border_color="#1d314d", activate_scrollbars=True)
         self.log_output.pack(fill="x", pady=(8, 0))
         self.log_output.configure(state="disabled")
         for item in self.log_history:
             self._append_log(item, record=False)
-
-    @staticmethod
-    def _bind_edit_shortcuts(entry: object) -> None:
-        entry.bind("<Control-a>", lambda event: WallpaperApp._select_all(event), add="+")
-        entry.bind("<Control-c>", lambda event: WallpaperApp._copy_selection(event), add="+")
-        entry.bind("<Control-v>", lambda event: WallpaperApp._paste_clipboard(event), add="+")
-
-    @staticmethod
-    def _select_all(event: object) -> str:
-        event.widget.select_range(0, "end")
-        event.widget.icursor("end")
-        return "break"
-
-    @staticmethod
-    def _copy_selection(event: object) -> str:
-        try:
-            selected = event.widget.selection_get()
-        except TclError:
-            return "break"
-        event.widget.clipboard_clear()
-        event.widget.clipboard_append(selected)
-        return "break"
-
-    @staticmethod
-    def _paste_clipboard(event: object) -> str:
-        try:
-            value = event.widget.clipboard_get()
-        except TclError:
-            return "break"
-        try:
-            event.widget.delete("sel.first", "sel.last")
-        except TclError:
-            pass
-        event.widget.insert("insert", value)
-        return "break"
 
     def _brand_mark(self, parent: object) -> object:
         try:
@@ -435,31 +370,6 @@ class WallpaperApp:
     def install_dependencies(self) -> None:
         self._run_background(self.t("installing"), self.dependencies.install_all_dependencies)
 
-    def toggle_rotation(self) -> None:
-        enabled = self.rotation_enabled.get()
-        minutes = self._rotation_minutes()
-        write_rotation_config(enabled=enabled, fallback_minutes=minutes)
-
-        if enabled:
-            self._run_background(
-                self.t("rotation_started", minutes=minutes),
-                lambda: (install_and_enable(self.log), self.log(self.t("rotation_started", minutes=minutes))),
-            )
-        else:
-            self._run_background(
-                self.t("rotation_stopped"),
-                lambda: (disable(self.log), self.log(self.t("rotation_stopped"))),
-            )
-
-    def _rotation_minutes(self) -> int:
-        try:
-            value = int(self.rotation_interval.get())
-        except ValueError:
-            value = DEFAULT_ROTATION_MINUTES
-        value = max(MIN_ROTATION_MINUTES, value)
-        self.rotation_interval.set(str(value))
-        return value
-
     def set_selected(self) -> None:
         path = Path(self.selected_path.get()).expanduser()
         if not path.is_file():
@@ -472,48 +382,8 @@ class WallpaperApp:
 
         self._run_background(self.t("setting"), job)
 
-    def download_wallpaper(self) -> None:
-        url = self.url.get().strip()
-        if not url.startswith(("https://", "http://")):
-            messagebox.showwarning(APP_NAME, self.t("invalid_url"), parent=self.window)
-            return
-        if self._total_memory_bytes() <= 8 * 1024**3 and not messagebox.askyesno(
-            APP_NAME,
-            self.t("video_memory_warning"),
-            parent=self.window,
-        ):
-            return
-
-        def job() -> Path:
-            yt_dlp = self.dependencies.get_ytdlp()
-            self.log(self.t("downloading"))
-            options = {
-                "format": "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
-                "merge_output_format": "mp4",
-                "noplaylist": True,
-                "restrictfilenames": True,
-                "outtmpl": str(WALLPAPER_DIR / "%(title).140B-%(id)s.%(ext)s"),
-                "quiet": True,
-                "no_warnings": True,
-            }
-            with yt_dlp.YoutubeDL(options) as downloader:
-                info = downloader.extract_info(url, download=True)
-                filename = Path(downloader.prepare_filename(info))
-            mp4_file = filename.with_suffix(".mp4")
-            if not filename.exists() and mp4_file.exists():
-                filename = mp4_file
-            if not filename.exists():
-                from .dependencies import DesktopLiveLinuxError
-
-                raise DesktopLiveLinuxError(self.t("download_file_unknown"))
-            self.log(self.t("downloaded", file=filename.name))
-            return filename
-
-        self._run_background(self.t("downloading"), job)
-
     @staticmethod
     def _total_memory_bytes() -> int:
-        """Read total physical memory on Linux without adding a dependency."""
         try:
             with open("/proc/meminfo", encoding="utf-8") as meminfo:
                 for line in meminfo:
